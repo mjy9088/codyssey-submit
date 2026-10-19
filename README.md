@@ -1,78 +1,90 @@
-# Codyssey AI All-in-One
+# Library Lending SQL Lab
 
-This repository is the public working monorepo for the Codyssey AI All-in-One
-course. It contains material that is safe and useful to publish: source code,
-reproducible development environments, engineering notes, tests, and explicitly
-required sanitized deliverables.
+This SQL-first exercise models a small library using SQLite 3.49.2. It contains no backend framework or network service: the deliverables are schema, deterministic sample records, 17 documented queries, and the required query-result text.
 
-## Environment bootstrap
+## Run
 
-Review the [environment documentation](environment/codyssey-init/README.md), then
-start the bootstrap from a trusted network with:
+With a local SQLite CLI:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/mjy9088/codyssey-public/main/init.sh | sh
+sqlite3 library.db < sql/01_schema.sql
+sqlite3 library.db < sql/02_seed.sql
+sqlite3 -header -separator '|' library.db < sql/03_queries.sql
 ```
 
-The new short URL becomes available after the root entry point is published to
-GitHub. Before then, run `sh init.sh` from this local repository root.
+Or run the complete isolated checks with Docker Engine and Compose:
 
-The short URL streams a mutable `main` wrapper and must therefore be trusted at
-execution time. The wrapper validates and buffers an exact revision of the Bash
-environment bootstrap before running it; its default payload is pinned. Use a
-reviewed local checkout or the revision-pinned buffered command in the environment
-documentation when the wrapper itself must also be immutable.
+```sh
+sh scripts/verify.sh docker
+sh scripts/verify.sh vm
+sh scripts/verify.sh all
+```
 
-## Repository map
+Docker mode builds from this directory, creates a fresh database in container tmpfs, verifies seed counts and rejected FK/UNIQUE violations, executes all queries, compares every row with the golden output, and checks final mutation state. VM mode boots an x86_64 Linux kernel with QEMU TCG and repeats the same SQLite checks inside the guest. Neither path needs KVM, privileged mode, capabilities, a bind mount, a host Docker socket, credentials, or parent-directory files.
 
-| Path | Purpose |
+## Data model
+
+```mermaid
+erDiagram
+    CATEGORIES ||--o{ BOOKS : classifies
+    MEMBERS ||--o{ RENTALS : borrows
+    BOOKS ||--o{ RENTALS : appears_in
+    CATEGORIES {
+        integer category_id PK
+        text name UK
+        text shelf_code UK
+    }
+    MEMBERS {
+        integer member_id PK
+        text email UK
+        text membership_status
+    }
+    BOOKS {
+        integer book_id PK
+        integer category_id FK
+        text isbn UK
+        integer copy_count
+    }
+    RENTALS {
+        integer rental_id PK
+        integer member_id FK
+        integer book_id FK
+        text status
+    }
+```
+
+Separating categories, books, members, and rental events prevents repeated category/member details and lets foreign keys preserve relationships. The three one-to-many relationships are category-to-books, member-to-rentals, and book-to-rentals. Every table has at least ten synthetic rows; records use reserved `.test` addresses.
+
+SQLite requires `PRAGMA foreign_keys = ON` per connection, so each executable SQL script and every explicit integrity probe enables it. Constraints cover primary keys, three natural-key uniqueness rules, required values, bounded years/copy counts, valid dates, rental statuses, and returned-date consistency. No views, procedures, or triggers are used.
+
+## Query coverage
+
+`sql/03_queries.sql` contains 17 independently labeled requirements:
+
+| Range | Coverage |
 | --- | --- |
-| `init.sh` | Short POSIX entry point for the environment bootstrap |
-| `environment/codyssey-init/` | Classroom and local development-environment bootstrap |
-| `coursework/` | Current, self-contained coursework projects |
-| `archive/E1-1/` | Imported E1-1 work, with its original Git history |
-| `archive/E1-2/` | Imported E1-2 work, with its original Git history |
-| `archive/E1-3/` | Imported E1-3 work, with its original Git history |
-| `docs/` | Repository policy and submission workflow |
+| Q01–Q04 | Basic filters, ordering, and limits |
+| Q05–Q08 | Multi-table inner joins and a left join |
+| Q09–Q11 | `COUNT`, `SUM`, `AVG`, and grouping |
+| Q12–Q13 | Scalar and correlated subqueries |
+| Q14–Q16 | Update, delete, and insert with observable results |
+| Q17 | Index creation/inspection |
 
-Additional course work should normally be added under a clearly named course or
-project directory rather than at the repository root.
+`julianday()` in Q11 and `sqlite_master` in Q17 are explicitly SQLite-specific. All other queries stay close to portable SQL. The rental member index supports member-history lookups and joins; the `(book_id, status)` index supports open-loan checks by book.
 
-Current coursework:
+## Required result evidence
 
-- [`B1-1`](coursework/B1-1/) and [`B1-2`](coursework/B1-2/)
-- [`B2-1`](coursework/B2-1/) and [`B2-2`](coursework/B2-2/)
-- [`B3-1`](coursework/B3-1/) and [`B3-2`](coursework/B3-2/)
-- [`B4-1`](coursework/B4-1/) and [`B4-2`](coursework/B4-2/)
-- [`B5-1`](coursework/B5-1/) and [`B5-2`](coursework/B5-2/)
-- [`B6-1`](coursework/B6-1/), [`B6-2`](coursework/B6-2/), and
-  [`B6-3`](coursework/B6-3/)
+[`results/expected.txt`](results/expected.txt) is deliberately versioned because query-result text is an explicit submission requirement. This is the sole execution-evidence exception. Ordinarily generated databases, logs, reports, and test output should not be tracked: they become stale, duplicate rerunnable automation, grow repositories, and may disclose local details. The verifier always regenerates results and performs a byte-for-byte comparison rather than trusting the checked-in text.
 
-## Repository roles
+## Files
 
-- **This repository (`codyssey-public`)** is the canonical public workspace and
-  monorepo.
-- **The private workspace** is the canonical home for assignment text, restricted
-  course material, credentials, personal data, and anything whose publication
-  rights are unclear.
-
-Read [the repository policy](docs/REPOSITORY_POLICY.md) before adding content.
-When an assessment requires a different tree layout, use the optional
-[submission workflow](docs/SUBMISSION_WORKFLOW.md).
-
-## Imported history
-
-Projects under `archive/` retain imported histories joined into this repository.
-Git is the provenance record; inspect the reachable lineages directly instead of
-maintaining a duplicate commit inventory:
-
-```bash
-git log --graph --oneline --decorate --all
+```text
+sql/01_schema.sql          tables, constraints, relationships, indexes
+sql/02_seed.sql            deterministic records (10+ per table)
+sql/03_queries.sql         17 documented queries
+results/expected.txt       required golden query-result text
+scripts/check.sh           integrity, coverage, mutation, and result checks
+scripts/verify.sh          Docker/QEMU orchestration
+verify/vm/                 actual guest construction and execution
+docs/REVIEW.md             manual review guide
 ```
-
-## Working here
-
-Keep changes scoped to one project when practical, run the checks documented in
-that project's README, and never copy restricted assignment content into an
-issue, commit, test fixture, screenshot, or generated artifact. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for the normal workflow.
