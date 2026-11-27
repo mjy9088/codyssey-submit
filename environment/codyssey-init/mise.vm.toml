@@ -1,3 +1,0 @@
-# Opt in with -E vm; ordinary bootstrap and Linux checks do not load this file.
-[tools]
-tart = { version = "2.40.1", os = ["macos"] }

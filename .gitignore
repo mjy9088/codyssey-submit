@@ -1,46 +1,10 @@
-# Local secrets and environment overrides
+artifacts/
 .env
-.env.*
-!.env.example
 *.pem
 *.key
-
-# Editors and operating systems
-.DS_Store
-.idea/
-.vscode/
-*.swp
-
-# Python
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
-
-# JavaScript
-node_modules/
-.pnpm-store/
-*.tsbuildinfo
-
-# Build and coverage output
-build/
-dist/
-coverage/
-.coverage
-
-# Local scratch space
-.local/
-/_site/
-.tmp/
-tmp/
-/core
-/core.[0-9]*
-
-# Materialized coursework tooling (included only in standalone submissions)
-/coursework/*/mise.toml
-/coursework/*/justfile
-/coursework/*/.coursework-dev/
-/coursework/*/.coursework-stage.*/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json

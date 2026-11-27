@@ -1,9 +1,0 @@
-*
-!Dockerfile
-!package.json
-!package-lock.json
-!index.html
-!src
-!src/**
-!server
-!server/**
